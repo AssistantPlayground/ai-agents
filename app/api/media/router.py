@@ -95,7 +95,10 @@ async def upload_media(
         metadata = DocumentMetadata(
             content_type=file.content_type,
             size=file_size,
-            additional_info={"original_filename": file.filename}
+            additional_info={"original_filename": file.filename},
+            buckets=MINIO_BUCKET,
+            prefix=file.filename,
+            user_id=str(user.id)
         )
 
         await docs_crud.create(obj_in=DocumentCreate(

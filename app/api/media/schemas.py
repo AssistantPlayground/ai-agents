@@ -6,7 +6,9 @@ class DocumentMetadata(BaseModel):
     content_type: str
     size: int
     additional_info: Dict[str, Any] = {} 
-
+    buckets: str
+    prefix: str
+    user_id: str
 
 class DocumentResponse(BaseModel):
     metadata: DocumentMetadata
