@@ -19,13 +19,17 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(UserBase):
-    pass
+    age: str
+    tests: dict
+    medical_history: dict
 
 
 class UserInDBBase(UserBase):
     id: ObjectId | None = None
     model_config = ConfigDict(from_attributes=True)
-
+    age: str
+    tests: dict
+    medical_history: dict
 
 class User(UserInDBBase):
     model_config = ConfigDict(populate_by_name=True)

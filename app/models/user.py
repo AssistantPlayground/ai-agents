@@ -16,3 +16,5 @@ class User(Model):
     modified: datetime = Field(default_factory=datetime_now_sec)
     matrix_id: str
     full_name: str = Field(default="")
+    tests: dict
+    medical_history: dict

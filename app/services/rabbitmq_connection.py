@@ -1,5 +1,4 @@
 import json
-import logging
 from dataclasses import dataclass
 from aio_pika import connect_robust, Message, ExchangeType
 from aio_pika.abc import AbstractRobustConnection, AbstractChannel, AbstractQueue, AbstractExchange

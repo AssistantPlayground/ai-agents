@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import aio_pika
 
@@ -27,50 +28,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-
-
-import asyncio
-import logging
-from .document_service import DocumentService
-from .config import get_settings
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-async def main():
-    """Main application entry point"""
-    settings = get_settings()
-    
-    # Initialize document service
-    service = DocumentService(
-        rabbitmq_url=settings.RABBITMQ_URL,
-        mongodb_url=settings.MONGODB_URL,
-        minio_endpoint=settings.MINIO_ENDPOINT,
-        minio_access_key=settings.MINIO_ACCESS_KEY,
-        minio_secret_key=settings.MINIO_SECRET_KEY,
-        minio_bucket=settings.MINIO_BUCKET
-    )
-    
-    try:
-        # Connect to RabbitMQ and start processing
-        await service.connect()
-        logger.info("Document processing service started")
-        
-        # Keep the service running
-        while True:
-            await asyncio.sleep(1)
-            
-    except KeyboardInterrupt:
-        logger.info("Shutting down document processing service")
-    except Exception as e:
-        logger.error(f"Error in main loop: {str(e)}")
-    finally:
-        await service.close()
-
-if __name__ == "__main__":
-    asyncio.run(main()) 

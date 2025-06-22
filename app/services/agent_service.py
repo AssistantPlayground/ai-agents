@@ -1,57 +1,60 @@
-from typing import Dict, Any, TypedDict
-from langgraph.graph import StateGraph
-from langgraph.graph.state import CompiledStateGraph
-from langchain_community.llms.ollama import Ollama
-
-from fastapi.encoders import jsonable_encoder
+from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from app.db.weaviate_client import weaviate_client
-from app.core.config import settings
+from langchain_ollama.chat_models import ChatOllama
+from langgraph.graph import StateGraph, START
+from langgraph.graph.state import CompiledStateGraph
+from langgraph.prebuilt import ToolNode, tools_condition
 
-# TODO: Update, move on ollama etc.
-class AgentState(TypedDict):
-    message: str
-    context: list[Dict[str, Any]] | None
-    response: str
+from app.core.config import settings
+from app.schemas.agent import AgentState
+from app.services.tools import tools
+from app.services.prompts import system_prompt
 
 
 def create_rag_agent() -> CompiledStateGraph:
-    llm = Ollama(base_url=settings.OLLAMA_BASE_URL, model=settings.MODEL_NAME)
-    
-    retrieval_prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are a helpful AI assistant. Use the following context to answer the user's question:\n{context}"),
-        ("human", "{question}")
-    ])
-    
-    retrieval_chain = retrieval_prompt | llm | StrOutputParser()
-    
-    async def retrieve(state: AgentState) -> AgentState:
-        """Retrieve relevant documents."""
-        context = await weaviate_client.search_similar(state["message"])
-        state["context"] = jsonable_encoder(context)
-        return state
-    
-    def generate(state: AgentState) -> AgentState:
-        """Generate response using retrieved context."""
-        response = retrieval_chain.invoke({
-            "context": "\n".join([doc["properties"]["content"] for doc in state["context"]]),
-            "question": state["message"]
-        })
-        
-        state["response"] = response
-        return state
-    
-    # Create the graph
+
+    retrieval_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", system_prompt),
+            ("placeholder", "{chat_history}"),
+            ("human", "{question}"),
+            ("placeholder", "{agent_scratchpad}"),
+        ]
+    )
     workflow = StateGraph(AgentState)
-    
-    # Add nodes
-    workflow.add_node("retrieve", retrieve)
+
+    model = ChatOllama(base_url=settings.OLLAMA_BASE_URL, model=settings.MODEL_NAME)
+    agent = create_tool_calling_agent(model, tools, retrieval_prompt)
+
+    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+
+    async def generate(state: AgentState) -> AgentState:
+        inputs = {
+            "question": state["message"],
+            "user_id": state["user"]["user_id"],
+            "context": "\n".join([doc["properties"]["content"] for doc in state["context"] or []])
+        }
+
+        result = await agent_executor.ainvoke(inputs)
+
+        if isinstance(result, dict) and "answer" in result:
+            state["response"] = result["answer"]
+        else:
+            state["response"] = str(result)  # fallback
+        return state
+
     workflow.add_node("generate", generate)
-    
-    # Add edges
-    workflow.add_edge("retrieve", "generate")
-    workflow.set_entry_point("retrieve")
+
+    tool_node = ToolNode(tools=tools)
+    workflow.add_node("tools", tool_node)
+
+    workflow.add_conditional_edges(
+        "generate",
+        tools_condition,
+    )
+
+    workflow.add_edge("tools", "generate")
+    workflow.add_edge(START, "chatbot")
     return workflow.compile()
 
 
@@ -59,12 +62,12 @@ class AgentService:
     def __init__(self):
         self.agent = create_rag_agent()
     
-    async def process_message(self, message: str):
-        """
-        Process a user message through the RAG agent.
-        """
+    async def process_message(self, user_id: str, message: str):
         state = {
             "message": message,
+            "user": {
+                "user_id": user_id
+            },
             "context": None
         }
         

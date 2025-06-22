@@ -16,13 +16,6 @@ class DocumentSchema(WeaviateSchema):
         api_endpoint=settings.WEAVIATE_OLLAMA,
         model=settings.EMBEDDING_MODEL
     )
-    # inverted_index_config=wvc.config.Configure.inverted_index(
-    #     bm25_b=0.7,
-    #     bm25_k1=1.25,
-    #     index_null_state=True,
-    #     index_property_length=True,
-    #     index_timestamps=True
-    # )
     inverted_index_config: BaseModel = wvc.config.Configure.inverted_index(
         bm25_b=0.7,
         bm25_k1=1.25,
