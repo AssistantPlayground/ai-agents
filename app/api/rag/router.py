@@ -1,6 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
-
-from minio import Minio
+from fastapi import APIRouter, HTTPException
 
 from app.db.weaviate_client import weaviate_client
 from app.core.config import settings

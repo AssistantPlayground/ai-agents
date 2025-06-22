@@ -1,3 +1,3 @@
-from app.db.mongodb.base_class import Base  # noqa
-from app.models.user import User  # noqa
-from app.models.docs import Document  # noqa
+from app.db.mongodb.base_class import Base
+from app.models.user import User
+from app.models.docs import Document
